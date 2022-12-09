@@ -86,20 +86,34 @@ func ParseWithSpecialTableName(dest interface{}, cacheStore *sync.Map, namer Nam
 		return nil, fmt.Errorf("%w: %+v", ErrUnsupportedDataType, dest)
 	}
 
+	// 反射获取对象值
 	value := reflect.ValueOf(dest)
+	// 如果是一个指针类型 并且是一个nil值就从新根据类型创建一个value
+	// 为什么需要重新创建value值呢？
+	// 如果value是一个nil值的话，下面使用到value值的，就会空指针异常了
 	if value.Kind() == reflect.Ptr && value.IsNil() {
+		// 根据value类型，创建创建value
+		// 由于是指针类型，所以这里需要使用Elem()
 		value = reflect.New(value.Type().Elem())
 	}
+
+	// Indirect 方法： 如果是指针，则调用elem()方法获取值，否则返回本身
+	// .Type() 获取dest的类型信息
 	modelType := reflect.Indirect(value).Type()
 
+	// 如果 modelType 是一个接口的话
+	// 重新创建获取 类型
+	// 什么时候是会出现interface类型呢？
 	if modelType.Kind() == reflect.Interface {
 		modelType = reflect.Indirect(reflect.ValueOf(dest)).Elem().Type()
 	}
 
+	// 如果是slice ，array，ptr 通过elem（）获取类型
 	for modelType.Kind() == reflect.Slice || modelType.Kind() == reflect.Array || modelType.Kind() == reflect.Ptr {
 		modelType = modelType.Elem()
 	}
 
+	// 如果不等于struct类型的话，直接返回
 	if modelType.Kind() != reflect.Struct {
 		if modelType.PkgPath() == "" {
 			return nil, fmt.Errorf("%w: %+v", ErrUnsupportedDataType, dest)
